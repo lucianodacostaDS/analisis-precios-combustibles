@@ -19,7 +19,7 @@ Este proyecto analiza el estado actual de la oferta de combustible en todo el te
 ## 📁 Estructura del Proyecto
 - trabajo-24.Rmd # Código R Markdown
 - trabajo-24.html # Reporte final (ver directamente)
-    - datos/
-- precios-en-surtidor-resolucin-3142016.csv # Datos originales
+- datos/
+    - precios-en-surtidor-resolucin-3142016.csv # Datos originales
 - README.md
 
