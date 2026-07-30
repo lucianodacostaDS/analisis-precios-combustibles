@@ -1,0 +1,529 @@
+---
+title: "Análisis sobre oferta de combustible en el territorio Argentino"
+author: "Tuillier Brian Ezequiel, Luciano David da Costa Mazzei"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Introducción
+
+En un mundo en que los precios del petróleo y el comercio de hidrocarburos ocupa las primeras planas de toda conversación y conflicto sobre política internacional, el combustible es un insumo estratégico para la vida económica de cualquier sociedad. En Argentina, su importancia se magnifica por las características particulares de su mercado energético y por las problemáticas económicas y sociales que atraviesa el país. Comprender el estado actual de la oferta de combustible —sus precios, su variabilidad geográfica, distorisón y diferencias entre tipos— resulta esencial para aproximarse a un entendimiento mejor de la siempre compleja situación económica que nos atraviesa.
+
+### El Dataset
+
+Para dicha busqueda analizaremos los datos disponibles de la secretaría de Energía de la Nación, estructurados en un dataset formato csv de 36.723 filas con 19 columnas con información que abarca geográficamente las 24 entidades subnacionales del país y temporalmente desde mediados de 2016 a la fecha.
+
+Cada fila representa una Unidad experimental tomada de un precio de surtidor registrado en una estación de servicio concreta, con su información organizada en variables según: Fecha, Identificador de empresa, cuit, nombre de la empresa, dirección, localidad, provincia, region, identificador de producto, producto(tipo de combustible), identificación de tipo horario, tipo horario, precio, fecha de vigencia, identificador de empresa de bandera, empresa de bandera, latitud, longitud y geolocalizacion
+
+En el presente analisis nos centraremos en el estudio del precio de diferentes tipos de combustibles según provincias en la actualidad (de Enero a Junio 2026).
+
+### Preguntas sobre las que se estructurará el análisis
+
+1.  ¿Existe diferencia de precios entre provincias por tipo de combustible?
+
+2.  ¿Que tipo de combustible presenta la distribución de precios mas homogenea y cual la mas variable entre provincias?
+
+3.  ¿Existe relación entre el precio de la nafta super y la nafta premium? ¿Se mantiene la relación al rededor del 10-20% usual entre dichos combustibles?
+
+### Orientacion, Objetivos del análisis
+
+Con el objetivo de establecer una comprensión de base sobre el asunto, estructuramos 3 preguntas que de forma particular construyen información sobre aspectos que al constituirse en general nos permiten una mejor visión del objeto de estudio. En ellas: La primer pregunta nos da un panorama nacional de precios entre provincias, nos permite ver si existen diferencias en los precios de diferentes combustibles y en que provincias son mayores de haberlas. La segunda pregunta nos lleva a profundizar en la homogeneidad o heterogeneidad de estas diferencias y por ultimo la tercer pregunta nos sirve para identificar distorsiones de precios en el mercado, para ello analizamos la correlación de precios entre dos bienes que usualmente sostienen una diferencia de entre el 10 y 20% mayor en nafta premium sobre super.
+
+Estas 3 preguntas nos permitirán observar si existen y que características tienen las diferencias en la oferta de combustible a lo largo del país, si esta oferta es distorsiva en sus elementos mas básicos y por ultimo, de esta información cuantitativa poder extraer conclusiones cualitativas sobre la estructura actual y los desafios tanto del sector energetico como del sistema productivo Argentino en su totalidad.
+
+### Hipotesis:
+
+-   Se observará una homogeneidad general en los precios a lo largo del país
+
+-   En caso de existir diferencias, Buenos Aires y Capital presentarán menores precios que la zonas mas periféricas
+
+-   Dada la característica planificación que se ejerce por parte de estados nacionales y actores economicos de importancia sobre la producción y distribución de combustibles a nivel internacional y en especial, la capacidad de intervención que el estado tiene sobre el sector a nivel nacional a través de la empresa estatal YPF, se debería observar un importante nivel de distorsión sobre la formación natural de precios exhibido en los resultados de la tercera pregunta
+
+# Análisis exploratorio de datos
+
+```{r instalacion,warning=FALSE, echo=FALSE, results='hide',message=FALSE}
+#Importacion de librerias
+
+library(readr) #para leer el csv rapidamente
+library(ggplot2) #graficos
+library(e1071) #calcular asimetrias
+library(tidyr) 
+library(dplyr) #ambas para trabajar con tablas
+library(knitr) #Para mejorar la impresión de datos en formato texto
+
+#Importar CSV
+
+combustibles <- read_csv("datos/precios-en-surtidor-resolucin-3142016.csv")
+#Observación y limpieza de dataset
+
+##primeros datos
+head(combustibles)
+
+##descripción de los tipos de datos
+str(combustibles)
+
+##Resumen estadístico
+summary(combustibles)
+
+##¿Hay datos faltantes?
+colSums(is.na(combustibles))
+
+#¿Hay datos repetidos?
+sum(duplicated(combustibles))
+
+unique(combustibles$provincia)
+
+
+colSums(is.na(combustibles))
+
+unique(combustibles$producto)
+```
+
+### 1. ¿Existe diferencia de precios entre provincias por tipo de combustible?
+
+Comenzaremos graficando en barras los promedios provinciales ordenados de mayor a menor por cada tipo de combustible
+
+```{r punto_1, warning=FALSE, echo=FALSE, results='hide',message=FALSE}
+#promedios
+promedios <- combustibles %>%
+  group_by(provincia, producto) %>%
+  summarise(
+    precio_promedio = mean(precio),
+    .groups = "drop"
+  )
+
+#combustibles de enero de 2026 a mayo de 2026
+combustibles_2026 <- combustibles %>%
+  filter(
+    indice_tiempo >= "2026-01",
+    indice_tiempo <= "2026_05"
+  )
+
+#promedios de enero de 2026 a mayo de 2026
+promedios_2026 <- combustibles_2026 %>%
+  group_by(provincia, producto) %>%
+  summarise(
+    precio_promedio = mean(precio),
+    .groups = "drop"
+  )
+
+
+#----------Promedios por producto--------------
+promedios_2026 %>%
+  filter(producto == "Nafta (súper) entre 92 y 95 Ron") %>%
+  arrange(desc(precio_promedio))
+
+
+
+
+
+promedios_2026 %>% 
+  filter(producto == "Nafta (premium) de más de 95 Ron") %>%
+  arrange(desc(precio_promedio))
+
+promedios_2026 %>%
+  filter(producto == "GNC") %>%
+  arrange(desc(precio_promedio))
+
+promedios_2026 %>%
+  filter(producto == "Gas Oil Grado 2") %>%
+  arrange(desc(precio_promedio))
+
+promedios_2026 %>%
+  filter(producto == "Gas Oil Grado 3") %>%
+  arrange(desc(precio_promedio))
+
+estadisticas <- combustibles_2026 %>%
+  group_by(provincia, producto) %>%
+  summarise(
+    media = mean(precio),
+    mediana = median(precio),
+    maximo = max(precio),
+    minimo = min(precio),
+    cantidad = n(),
+    .groups = "drop"
+  )
+```
+
+```{r grafico_1, warning=FALSE, echo=FALSE,message=FALSE, results='asis'}
+nafta_super <- estadisticas %>%
+  filter(producto == "Nafta (súper) entre 92 y 95 Ron")
+
+g1 <- ggplot2::ggplot(
+  nafta_super,
+  aes(
+    x = reorder(provincia, media),
+    y = media
+  )
+) +
+  geom_col() +
+  coord_flip(clip = "off", ylim = c(0, max(nafta_super$media) * 1.15)) +
+  geom_text(
+    aes(label = paste0("$", round(media, 2))),
+    hjust = -0.1,
+    size = 3.5
+  ) + 
+  labs(
+    title = "Precio promedio de Nafta Súper por provincia",
+    x = "Provincia",
+    y = "Precio promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 2, 1, 1), "cm")
+  )
+
+print(g1)
+#Media de premium de cada provincia
+nafta_premium <- estadisticas %>%
+  filter(producto == "Nafta (premium) de más de 95 Ron")
+max_precio <- max(nafta_premium$media)
+g2 <- ggplot2::ggplot(
+  nafta_premium,
+  aes(
+    x = reorder(provincia, media),
+    y = media
+  )
+) +
+  geom_col() +
+  coord_flip(clip = "off", ylim = c(0, max_precio * 1.12)) +
+  geom_text(
+    aes(label = paste0("$", round(media, 0))),  
+    hjust = -0.1,
+    size = 3
+  ) +  
+  labs(
+    title = "Precio promedio de Nafta Premium por provincia",
+    x = "Provincia",
+    y = "Precio promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 3, 1, 1), "cm") 
+  )
+print(g2)
+  
+#Media de GNC de cada provincia
+gnc <- estadisticas %>%
+  filter(producto == "GNC")
+ max_precio <- max(gnc$media)
+g3 <- ggplot2::ggplot(
+  gnc,
+  aes(
+    x = reorder(provincia, media),
+    y = media
+  )
+) +
+  geom_col()+
+  coord_flip(clip = "off", ylim = c(0, max_precio * 1.12)) +
+  geom_text(
+    aes(label = paste0("$", round(media, 0))), 
+    hjust = -0.1,
+    size = 3
+  ) + 
+  labs(
+    title = "Precio promedio de GNC por provincia",
+    x = "Provincia",
+    y = "Precio promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 3, 1, 1), "cm") 
+  )
+print(g3)
+
+#Media de Gas oil 2 de cada provincia
+gas_oil_2 <- estadisticas %>%
+  filter(producto == "Gas Oil Grado 2")
+
+max_precio <- max(gas_oil_2$media)
+
+g4 <- ggplot2::ggplot(
+  gas_oil_2,
+  aes(
+    x = reorder(provincia, media),
+    y = media
+  )
+) +
+  geom_col() +
+  coord_flip(clip = "off", ylim = c(0, max_precio * 1.12)) +
+  geom_text(
+    aes(label = paste0("$", round(media, 0))),  
+    hjust = -0.1,
+    size = 3
+  ) +  
+  labs(
+    title = "Precio promedio de Gas Oil Grado 2 por provincia",
+    x = "Provincia",
+    y = "Precio promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 3, 1, 1), "cm")  
+  )
+
+
+print(g4)
+
+#Media de Gas oil 3 de cada provincia
+gas_oil_3 <- estadisticas %>%
+  filter(producto == "Gas Oil Grado 3")
+
+# Calcular el máximo valor para ajustar el margen
+max_precio <- max(gas_oil_3$media)
+
+g5 <- ggplot2::ggplot(
+  gas_oil_3,
+  aes(
+    x = reorder(provincia, media),
+    y = media
+  )
+) +
+  geom_col() +
+  coord_flip(clip = "off", ylim = c(0, max_precio * 1.12)) +
+  geom_text(
+    aes(label = paste0("$", round(media, 0))),
+    hjust = -0.1,
+    size = 3
+  ) + 
+  labs(
+    title = "Precio promedio de Gas Oil Grado 3 por provincia",
+    x = "Provincia",
+    y = "Precio promedio"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 3, 1, 1), "cm")  
+  ) 
+
+print(g5)
+```
+
+Finalmente un gráfico de promedio general de todos los combustibles
+
+```{r grafico_2, warning=FALSE, echo=FALSE,message=FALSE, results='asis'}
+#Grafico general
+
+promedio_provincia <- estadisticas %>%
+  group_by(provincia) %>%
+  summarise(
+    promedio_general = mean(media, na.rm = TRUE)  
+  ) %>%
+  arrange(desc(promedio_general))
+max_valor <- max(promedio_provincia$promedio_general)
+
+g6 <- ggplot2::ggplot(
+  promedio_provincia,
+  aes(
+    x = reorder(provincia, promedio_general),
+    y = promedio_general
+  )
+) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  coord_flip(clip = "off", ylim = c(0, max_valor * 1.12)) +
+  geom_text(
+    aes(label = paste0("$", round(promedio_general, 0))),
+    hjust = -0.1,
+    size = 3
+  ) +
+  labs(
+    title = "Precio promedio general por provincia",
+    subtitle = "Promedio de todos los tipos de combustible",
+    x = "Provincia",
+    y = "Precio promedio (pesos)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.margin = unit(c(1, 3, 1, 1), "cm"),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  )
+print(g6)
+
+```
+
+#### Observaciones preliminares:
+
+Existe una diferencia de precios entre provincias, no hay homogeneidad nacional en ningún tipo de combustible. Si bien estas diferencias son variables, se observa un claro descenso de precios en el sur del país, San Luis y lo mas sorprendente, en los distritos de mayor actividad económica del país: Capital Federal y Buenos Aires
+
+### 2. ¿Que tipo de combustible presenta la distribución de precios mas homogenea y cual la mas variable entre provincias?
+
+```{r punto_2, warning=FALSE, echo=FALSE, results='hide',message=FALSE}
+
+pregunta2_resumen <- estadisticas %>%
+  group_by(producto) %>%
+  summarise(
+    # Medidas de tendencia central
+    media_nacional = mean(mediana, na.rm = TRUE),
+    mediana_nacional = median(mediana, na.rm = TRUE),
+    
+    # Medidas de desviacion estandard, max/min
+    desvio_std = sd(mediana, na.rm = TRUE),
+    rango = max(mediana, na.rm = TRUE) - min(mediana, na.rm = TRUE),
+    min_provincia = min(mediana, na.rm = TRUE),
+    max_provincia = max(mediana, na.rm = TRUE),
+    
+    # Coeficiente de variación
+    cv = desvio_std / media_nacional,
+    
+    # Medidas de forma: curtosis y asimetria
+    asimetria = skewness(mediana, na.rm = TRUE, type = 2),
+    curtosis = kurtosis(mediana, na.rm = TRUE, type = 2),
+    
+    # Conteo
+    n_provincias = n()
+  ) %>%
+  arrange(cv)  # ordenar de más homogéneo (menor CV) a más variable (mayor CV)
+```
+
+Primero generaremos una tabla con medidas de dispersión
+
+```{r punto_2_medidas, warning=FALSE, echo=FALSE, message=FALSE}
+library(knitr)
+
+pregunta2_resumen %>%
+  kable(
+    caption = "Medidas de homogeneidad por tipo de combustible",
+    digits = 2,
+    col.names = c("Combustible", "Media nacional", "Mediana nacional", 
+                  "Desvío std", "Rango", "Mínimo", "Máximo", 
+                  "CV", "Asimetría", "Curtosis", "N provincias")
+  )
+```
+
+Luego graficamos la desviación en Histogramas
+
+```{r grafico_3, warning=FALSE, echo=FALSE,message=FALSE, results='asis'}
+#Histograma de densidad
+ggplot2::ggplot(estadisticas, aes(x = mediana)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "steelblue", color = "black", alpha = 0.5) +
+  geom_density(color = "red", linewidth = 1.2) +
+  facet_wrap(~ producto, scales = "free", ncol = 2) +
+  labs(title = "Distribución de precios medianos por provincia según tipo de combustible",
+       subtitle = "La línea roja muestra la densidad. Mayor ancho = más variable entre provincias",
+       x = "Precio mediano por provincia",
+       y = "Densidad") +
+  theme_minimal()
+```
+
+#### Observaciones preliminares:
+
+-   El coeficiente de variación nos permite ver que GNC es por lejos el mas variable con un 18% de CV, los mas homogeneos son por igual Nafta premium y los dos tipos de Gasoil con 7%.
+-   Respecto a asimetrías, Gasoil y Nafta presentan valores negativos, lo que significa que unas pocas provincias tienen precios significativamente mas baratos que el resto
+-   Respecto a Curtosis el Gasoil muestra valores elevados (4.99 y 5.54) demostrando altas concentraciones alrededor de valores concretos teniendo una tendencia Leptocúrtica, mientras tanto L nafta muestra valores mas cercanos a 0 asemejandose a distribuciones mesocurticas mas normales.
+
+Estas Desviaciones existentes y prominentes en las 3 métricas observadas, nos dan una idea mas acabada de la heterogeneidad de precios a lo largo del país que desde lo hipotetico no se esperaba
+
+### 3. ¿Existe relación entre el precio de la nafta super y la nafta premium? ¿Se mantiene la relación al rededor del 10-20% usual entre dichos combustibles?
+
+```{r punto_3, warning=FALSE, echo=FALSE, results='hide',message=FALSE}
+punto_3 <- estadisticas %>%
+  filter(producto %in% c("Nafta (súper) entre 92 y 95 Ron", 
+                         "Nafta (premium) de más de 95 Ron")) %>%
+  select(provincia, producto, mediana) %>%
+  pivot_wider(names_from = producto, values_from = mediana)
+
+names(punto_3) <- c("provincia", "premium", "super")
+
+#sacar correlaciones
+
+cor_pearson <- cor(punto_3$super, punto_3$premium, method = "pearson")
+print(paste("Correlación de Pearson:", round(cor_pearson, 2)))
+```
+
+Primero veremos que correlación existe entre ambos precios y un gráfico de dispersión de todas las provincias
+
+```{r grafico_4, warning=FALSE, echo=FALSE,message=FALSE, results='asis'}
+#hacer grafico de dispersion
+
+ggplot(punto_3, aes(x = super, y = premium)) +
+  geom_point(size = 4, color = "darkblue", alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "red", fill = "pink", alpha = 0.3) +
+  geom_text(aes(label = provincia), hjust = -0.2, vjust = -0.2, size = 3) +
+  labs(title = "Relación entre precio de Nafta Súper y Premium por provincia",
+       subtitle = paste("Correlación de Pearson:", round(cor_pearson, 4)),
+       x = "Precio Nafta Súper (mediana por provincia, pesos)",
+       y = "Precio Nafta Premium (mediana por provincia, pesos)") +
+  theme_minimal() +
+  theme(plot.subtitle = element_text(hjust = 0.5)) +
+  xlim(NA, max(punto_3$super) * 1.05)
+
+punto_3 <- punto_3 %>%
+  mutate(
+    diferencia = premium - super,
+    ratio = premium / super
+  )
+```
+
+Ahora, un gráfico de barras que desglose los ratios de diferencias entre ambos productos por cada provincia
+
+```{r grafico_5, warning=FALSE, echo=FALSE,message=FALSE, results='asis'}
+#Grafico de ratios especificos en cada provincia
+
+punto_3_ordenado <- punto_3 %>%
+  arrange(desc(ratio)) %>%
+  mutate(provincia = factor(provincia, levels = provincia))
+
+ggplot(punto_3_ordenado, aes(x = provincia, y = ratio)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = round(ratio, 2)), 
+            hjust = -0.2, 
+            size = 3) +
+  coord_flip() +
+  labs(title = "Brecha entre Nafta Premium y Súper por provincia",
+       x = "Provincia",
+       y = "Ratio (Premium / Súper)") +
+  theme_minimal() +
+  ylim(NA, max(punto_3$ratio) * 1.05)
+```
+
+#### Observaciones preliminares:
+
+A diferencia de las variaciones observadas geograficamente en los dos puntos anteriores, En este caso los datosmuestran una muy alta correlación de mas del 97%, una clara linea de tendencia normal en cuanto a la dispersión y unos ratios provinciales que van de 11 a 21% siguiendo casi perfectamente la pregunta inicial que buscaba diferencias de entre el 10 y 20%. Podemos concluir claramente que al menos en estas relaciones entre combustibles, el mercado no presenta distorsiones de precios.
+
+# Conclusiones:
+
+1.  A diferencia de lo que se hipotetizaba, se presentan diferencias de precio entre provincias. Estas tienen un coeficiente de variación razonable (entre 0,07 y 0,18 según el combustible), aunque superior al esperado en un mercado teóricamente integrado.
+
+2.  Buenos Aires y Capital Federal presentan precios más bajos en GNC y gasoil, pero no en naftas, donde se ubican entre las más caras. Esta inversión de posiciones según el tipo de combustible es uno de los hallazgos más relevantes del estudio.
+
+3.  Las provincias del sur presentan en general precios más bajos que el norte, siendo el caso más extremo el de Tierra del Fuego, que aparece como la provincia más barata en naftas y la segunda más barata en gasoil, consistente con su régimen de zona franca.
+
+4.  La región del Noroeste Argentino (NOA) presenta en general los precios más altos, aunque con excepciones puntuales que requerirían un análisis más detallado.
+
+5.  No se observaron las distorsiones de precios esperadas en el punto 3, los datos demostraron un desempeño mas bien normal en cuanto a relación entre combustibles
+
+6.  El uso de tendencia centrales provinciales demostró ser una herramienta robusta para mitigar el efecto de estaciones atípicas, permitiendo una comparación más realista entre jurisdicciones.
+
+# Reflexiones finales:
+
+A partir de los resultados obtenidos, es posible ensayar algunas hipótesis interpretativas que, si bien exceden el alcance estrictamente descriptivo de este estudio, pueden resultar útiles para futuras investigaciones.
+
+**Segmentación por tipo de consumo**
+
+Los datos muestran una clara diferenciación en la estructura de precios según el tipo de combustible. Mientras que las naftas (asociadas predominantemente al consumo particular) presentan precios relativamente más altos en zonas de mayor ingreso y densidad poblacional como CABA y el Conurbano Bonaerense, el GNC y el gasoil (combustibles ampliamente utilizados en transporte público de pasajeros y transporte de cargas) exhiben precios comparativamente más bajos en esas mismas jurisdicciones.
+
+Esta inversión de posiciones sugiere la existencia de dinámicas de mercado diferenciadas por segmento de consumo, posiblemente vinculadas a volúmenes de demanda, elasticidades precio disímiles o estructuras de competencia específicas por tipo de combustible.
+
+**Centralización logística e implicancias para el comercio**
+
+Una observación adicional, que se presenta a modo de hipótesis a explorar en futuros estudios, refiere a la posible relación entre la estructura de precios observada y la geografía económica del país. El Área Metropolitana de Buenos Aires (AMBA) concentra los principales puertos y centros logísticos del país. Los precios relativamente más bajos de combustibles para transporte pesado en esta región podrían implicar menores costos operativos para la distribución de mercancías desde los puntos de ingreso (importaciones) hacia el interior.
+
+Por el contrario, las provincias del interior que registran precios comparativamente más altos en estos combustibles enfrentarían mayores costos relativos tanto para su circulación interna como para el traslado de bienes hacia los puertos. Esta asimetría, de confirmarse en análisis posteriores, podría traducirse en ventajas logísticas relativas para los flujos comerciales con origen en el AMBA en comparación con aquellos originados en el interior.
+
+**Limitaciones del análisis**
+
+Es importante señalar que este estudio, de carácter exploratorio y descriptivo, no permite establecer relaciones causales entre los precios observados y las dinámicas económicas aquí sugeridas. Las interpretaciones presentadas constituyen hipótesis de trabajo que requieren ser contrastadas con diseños de investigación específicos, que incorporen variables adicionales como costos logísticos, volúmenes de comercio, elasticidades de demanda y marcos regulatorios.
+
+# Posibles investigaciones futuras
+
+Dadas las observaciones y debates que de este análisis exploratorio se pueden desprender, podríamos considerar otras posibles investigaciones que complmenten o den luz sobre las cuestiones tratadas en este análisis:
+
+1.  Evolución en las variaciones provinciales y nacionales del combustible a través de los últimos años
+
+2.  Analisis comparativo histórico del precio de combustible entre centros económicos como Tierra del Fuego y Buenos Aires versus provincias mas desfavorecidas, por ejemplo del Norte Argentino
+
+3. Correlación entre precios de combustibles y actividad industrial
+
+4. Correlación entre precios de combustibles y balanza comercial
